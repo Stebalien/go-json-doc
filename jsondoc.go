@@ -13,22 +13,22 @@ var (
 	marshalJsonType = reflect.TypeOf((*json.Marshaler)(nil)).Elem()
 )
 
-type Atlas struct {
+type Glossary struct {
 	descriptions map[reflect.Type]interface{}
 }
 
-func NewAtlas() *Atlas {
-	return (&Atlas{descriptions: make(map[reflect.Type]interface{})}).
+func NewGlossary() *Glossary {
+	return (&Glossary{descriptions: make(map[reflect.Type]interface{})}).
 		RegisterName(new(error), "error").
 		RegisterName(new(time.Time), "timestamp")
 }
 
-func (d *Atlas) RegisterStructure(thing interface{}, structure interface{}) *Atlas {
+func (d *Glossary) RegisterStructure(thing interface{}, structure interface{}) *Glossary {
 	d.descriptions[baseType(reflect.TypeOf(thing))] = structure
 	return d
 }
 
-func (d *Atlas) RegisterName(thing interface{}, name string) *Atlas {
+func (d *Glossary) RegisterName(thing interface{}, name string) *Glossary {
 	d.descriptions[baseType(reflect.TypeOf(thing))] = fmt.Sprintf("<%s>", name)
 	return d
 }
@@ -48,11 +48,11 @@ type typeState struct {
 }
 
 type describeState struct {
-	*Atlas
+	*Glossary
 	state map[reflect.Type]*typeState
 }
 
-func (d *Atlas) Describe(thing interface{}) string {
+func (d *Glossary) Describe(thing interface{}) string {
 	state := describeState{d, make(map[reflect.Type]*typeState)}
 	desc := state.describe(reflect.TypeOf(thing))
 	var buf strings.Builder
@@ -72,7 +72,6 @@ func baseType(ty reflect.Type) reflect.Type {
 	}
 	return ty
 }
-
 func (d *describeState) describe(t reflect.Type) interface{} {
 	t = baseType(t)
 	s, ok := d.state[t]
