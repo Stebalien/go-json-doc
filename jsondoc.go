@@ -91,8 +91,11 @@ func (d *describeState) describe(t reflect.Type) interface{} {
 		desc := make(map[string]interface{}, t.NumField())
 		for j := 0; j < t.NumField(); j++ {
 			f := t.Field(j)
-			name, ok := f.Tag.Lookup("json")
-			if !ok {
+			name := f.Tag.Get("json")
+			if idx := strings.IndexByte(name, ','); idx >= 0 {
+				name = name[:idx]
+			}
+			if name == "" {
 				name = f.Name
 			}
 			desc[name] = d.describe(f.Type)
