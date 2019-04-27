@@ -16,50 +16,60 @@ var (
 	recursiveDesc   = "..."
 )
 
+type state int
+
+const (
+	stateBuildingFull state = iota
+	stateBuildingShallow
+	stateShallowDone
+	stateFullDone
+)
+
+type typeState struct {
+	state         state
+	shallow, full interface{}
+}
+
+func baseType(ty reflect.Type) reflect.Type {
+	for ty.Kind() == reflect.Ptr {
+		ty = ty.Elem()
+	}
+	return ty
+}
+
 // Glossary describes the set of types used in the structures to be described.
+//
+// This type memoizes and is NOT type-safe.
 type Glossary struct {
-	descriptions map[reflect.Type]interface{}
+	types map[reflect.Type]*typeState
 }
 
 // NewGlossary creates a new glossary. In addition to th
 func NewGlossary() *Glossary {
-	return (&Glossary{descriptions: make(map[reflect.Type]interface{})}).
+	return (&Glossary{types: make(map[reflect.Type]*typeState)}).
 		RegisterName(new(error), "error").
 		RegisterName(new(time.Time), "timestamp")
 }
 
 func (d *Glossary) RegisterStructure(thing interface{}, structure interface{}) *Glossary {
-	d.descriptions[baseType(reflect.TypeOf(thing))] = structure
+	d.types[baseType(reflect.TypeOf(thing))] = &typeState{
+		state: stateFullDone,
+		full:  structure,
+	}
 	return d
 }
 
 func (d *Glossary) RegisterName(thing interface{}, name string) *Glossary {
-	d.descriptions[baseType(reflect.TypeOf(thing))] = fmt.Sprintf("<%s>", name)
+	d.types[baseType(reflect.TypeOf(thing))] = &typeState{
+		state: stateFullDone,
+		full:  fmt.Sprintf("<%s>", name),
+	}
 	return d
 }
 
-type state int
-
-const (
-	stateBuildingRecursive state = iota
-	stateBuildingShallow
-	stateShallowDone
-	stateDone
-)
-
-type typeState struct {
-	state              state
-	shallow, recursive interface{}
-}
-
-type describeState struct {
-	*Glossary
-	state map[reflect.Type]*typeState
-}
-
+// Describe describes the given type.
 func (d *Glossary) Describe(thing interface{}) string {
-	state := describeState{d, make(map[reflect.Type]*typeState)}
-	desc := state.describe(reflect.TypeOf(thing))
+	desc := d.describe(reflect.TypeOf(thing))
 	var buf strings.Builder
 	enc := json.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)
@@ -71,30 +81,14 @@ func (d *Glossary) Describe(thing interface{}) string {
 	return buf.String()
 }
 
-func baseType(ty reflect.Type) reflect.Type {
-	for ty.Kind() == reflect.Ptr {
-		ty = ty.Elem()
-	}
-	return ty
-}
-func (d *describeState) describe(t reflect.Type) interface{} {
+func (d *Glossary) describe(t reflect.Type) interface{} {
 	t = baseType(t)
 
-	// Handle predefined descriptions
-	if desc, ok := d.descriptions[t]; ok {
-		return desc
-	}
-
-	// Handle types with custom marshallers.
-	if t.Implements(marshalJsonType) {
-		return objectDesc
-	}
-
-	// Handle recursive types.
-	s, ok := d.state[t]
+	// Check for in-progress or finished descriptions
+	s, ok := d.types[t]
 	if ok {
 		switch s.state {
-		case stateBuildingRecursive:
+		case stateBuildingFull:
 			// We've recursed, build a shallow description that
 			// replaces all recursion points with "..."
 			s.state = stateBuildingShallow
@@ -106,13 +100,16 @@ func (d *describeState) describe(t reflect.Type) interface{} {
 			// We're recursing but we already have a shallow
 			// description, use it.
 			return s.shallow
-		case stateDone:
+		case stateFullDone:
 			// We've already described this type, use it.
-			return s.recursive
+			return s.full
 		}
+	} else if t.Implements(marshalJsonType) {
+		// Handle types with custom marshallers.
+		return objectDesc
 	} else {
 		s = new(typeState)
-		d.state[t] = s
+		d.types[t] = s
 	}
 
 	// Describe the type
@@ -156,16 +153,16 @@ func (d *describeState) describe(t reflect.Type) interface{} {
 
 	// save the description
 	switch s.state {
-	case stateBuildingRecursive, stateShallowDone:
-		// We've finished the recursive description.
-		s.recursive = desc
-		s.state = stateDone
+	case stateBuildingFull, stateShallowDone:
+		// We've finished the full description.
+		s.full = desc
+		s.state = stateFullDone
 	case stateBuildingShallow:
 		// We've finished a shallow description, now we need to finish
-		// the recursive one.
+		// the full one.
 		s.shallow = desc
 		s.state = stateShallowDone
-	case stateDone:
+	case stateFullDone:
 		// We've already finished this one...
 		panic("impossible state")
 	}
