@@ -97,7 +97,7 @@ func (d *describeState) describe(t reflect.Type) interface{} {
 			s.desc = "<object>"
 		}
 	case reflect.Map:
-		s.desc = map[string]interface{}{d.describe(t.Key()).(string): d.describe(t.Elem())}
+		desc = map[string]interface{}{d.describe(t.Key()).(string): d.describe(t.Elem())}
 	case reflect.Struct:
 		var ok bool
 		desc, ok = d.descriptions[t]
