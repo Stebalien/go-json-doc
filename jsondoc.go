@@ -72,17 +72,16 @@ func (d *Glossary) RegisterName(thing interface{}, name string) *Glossary {
 }
 
 // Describe describes the given type.
-func (d *Glossary) Describe(thing interface{}) string {
+func (d *Glossary) Describe(thing interface{}) (string, error) {
 	desc := d.describe(reflect.TypeOf(thing))
 	var buf strings.Builder
 	enc := json.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)
 	enc.SetIndent("", "  ")
-	err := enc.Encode(desc)
-	if err != nil {
-		panic(err)
+	if err := enc.Encode(desc); err != nil {
+		return "", err
 	}
-	return buf.String()
+	return buf.String(), nil
 }
 
 func (d *Glossary) describe(t reflect.Type) interface{} {
