@@ -38,12 +38,13 @@ type state int
 const (
 	stateBuildingComplete state = iota
 	stateBuildingShallow
+	stateShallowDone
 	stateDone
 )
 
 type typeState struct {
-	state state
-	desc  interface{}
+	state             state
+	shallow, complete interface{}
 }
 
 type describeState struct {
@@ -71,6 +72,7 @@ func baseType(ty reflect.Type) reflect.Type {
 	}
 	return ty
 }
+
 func (d *describeState) describe(t reflect.Type) interface{} {
 	t = baseType(t)
 	s, ok := d.state[t]
@@ -80,8 +82,10 @@ func (d *describeState) describe(t reflect.Type) interface{} {
 			s.state = stateBuildingShallow
 		case stateBuildingShallow:
 			return "..."
+		case stateShallowDone:
+			return s.shallow
 		case stateDone:
-			return s.desc
+			return s.complete
 		}
 	} else {
 		s = new(typeState)
@@ -94,7 +98,7 @@ func (d *describeState) describe(t reflect.Type) interface{} {
 		var ok bool
 		desc, ok = d.descriptions[t]
 		if !ok {
-			s.desc = "<object>"
+			desc = "<object>"
 		}
 	case reflect.Map:
 		desc = map[string]interface{}{d.describe(t.Key()).(string): d.describe(t.Elem())}
@@ -137,8 +141,11 @@ func (d *describeState) describe(t reflect.Type) interface{} {
 	}
 	switch s.state {
 	case stateBuildingComplete:
-		s.desc = desc
+		s.complete = desc
+		s.state = stateDone
 	case stateBuildingShallow:
+		s.shallow = desc
+		s.state = stateShallowDone
 	case stateDone:
 		panic("impossible state")
 	}
