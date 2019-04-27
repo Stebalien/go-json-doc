@@ -52,14 +52,17 @@ func NewGlossary() *Glossary {
 		RegisterName([]byte(nil), "<base64-string>") // go base64 encodes binary
 }
 
-func (d *Glossary) RegisterStructure(thing interface{}, structure interface{}) *Glossary {
+// RegisterDescription registers an object that describes the given type. This
+// description must marshal to JSON.
+func (d *Glossary) RegisterDescription(thing interface{}, description interface{}) *Glossary {
 	d.types[baseType(reflect.TypeOf(thing))] = &typeState{
 		state: stateFullDone,
-		full:  structure,
+		full:  description,
 	}
 	return d
 }
 
+// RegisterName registers a name for the given type.
 func (d *Glossary) RegisterName(thing interface{}, name string) *Glossary {
 	d.types[baseType(reflect.TypeOf(thing))] = &typeState{
 		state: stateFullDone,
