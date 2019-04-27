@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 type Atlas struct {
@@ -30,12 +31,28 @@ func (d *Atlas) RegisterName(thing interface{}, name string) *Atlas {
 	return d
 }
 
+type state struct {
+	complete bool
+	desc     interface{}
+}
+
+type describeState struct {
+	*Atlas
+	state map[reflect.Type]*state
+}
+
 func (d *Atlas) Describe(thing interface{}) string {
-	desc, err := json.MarshalIndent(d.describe(reflect.TypeOf(thing)), "", "  ")
+	state := describeState{d, make(map[reflect.Type]*state)}
+	desc := state.describe(reflect.TypeOf(thing))
+	var buf strings.Builder
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	err := enc.Encode(desc)
 	if err != nil {
 		panic(err)
 	}
-	return string(desc)
+	return buf.String()
 }
 
 func baseType(ty reflect.Type) reflect.Type {
@@ -44,21 +61,32 @@ func baseType(ty reflect.Type) reflect.Type {
 	}
 	return ty
 }
-
-func (d *Atlas) describe(t reflect.Type) interface{} {
+func (d *describeState) describe(t reflect.Type) interface{} {
 	t = baseType(t)
+	s, ok := d.state[t]
+	if ok {
+		if !s.complete {
+			return "<recursive>"
+		}
+		return s.desc
+	} else {
+		s = new(state)
+		d.state[t] = s
+	}
 	switch t.Kind() {
 	case reflect.Interface:
-		desc, ok := d.descriptions[t]
+		var ok bool
+		s.desc, ok = d.descriptions[t]
 		if !ok {
-			desc = "<object>"
+			s.desc = "<object>"
 		}
-		return desc
 	case reflect.Map:
-		return map[interface{}]interface{}{d.describe(t.Key()): d.describe(t.Elem())}
+		s.desc = map[string]interface{}{d.describe(t.Key()).(string): d.describe(t.Elem())}
 	case reflect.Struct:
-		if desc, ok := d.descriptions[t]; ok {
-			return desc
+		var ok bool
+		s.desc, ok = d.descriptions[t]
+		if ok {
+			break
 		}
 		desc := make(map[string]interface{}, t.NumField())
 		for j := 0; j < t.NumField(); j++ {
@@ -69,10 +97,12 @@ func (d *Atlas) describe(t reflect.Type) interface{} {
 			}
 			desc[name] = d.describe(f.Type)
 		}
-		return desc
+		s.desc = desc
 	case reflect.Slice:
-		return []interface{}{d.describe(t.Elem())}
+		s.desc = []interface{}{d.describe(t.Elem())}
 	default:
-		return fmt.Sprintf("<%s>", t.Kind())
+		s.desc = fmt.Sprintf("<%s>", t.Kind())
 	}
+	s.complete = true
+	return s.desc
 }
