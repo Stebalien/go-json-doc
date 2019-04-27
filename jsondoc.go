@@ -10,6 +10,12 @@ type Atlas struct {
 	descriptions map[reflect.Type]interface{}
 }
 
+func NewAtlas() *Atlas {
+	return &Atlas{
+		descriptions: make(map[reflect.Type]interface{}),
+	}
+}
+
 func (d *Atlas) RegisterStructure(thing interface{}, structure interface{}) *Atlas {
 	json, err := json.Marshal(structure)
 	if err != nil {
