@@ -134,14 +134,33 @@ func (d *Glossary) describe(t reflect.Type) interface{} {
 			if f.PkgPath != "" {
 				continue // private field, see the reflect docs
 			}
-			name := f.Tag.Get("json")
-			if idx := strings.IndexByte(name, ','); idx >= 0 {
-				name = name[:idx]
+			name := f.Name
+			isString := false
+			if tag := f.Tag.Get("json"); tag != "" {
+				parts := strings.Split(tag, ",")
+				switch parts[0] {
+				case "":
+				case "-":
+					// skip this field
+					continue
+				default:
+					name = parts[0]
+				}
+
+				for _, opt := range parts[1:] {
+					switch opt {
+					case "string":
+						isString = true
+					}
+				}
 			}
-			if name == "" {
-				name = f.Name
+			var fieldDesc interface{}
+			if isString {
+				fieldDesc = fmt.Sprintf("<string-%s>", f.Type.Kind())
+			} else {
+				d.describe(f.Type)
 			}
-			structDesc[name] = d.describe(f.Type)
+			structDesc[name] = fieldDesc
 		}
 		if len(structDesc) == 0 && t.Implements(stringerType) {
 			desc = stringDesc
