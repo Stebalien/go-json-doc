@@ -5,6 +5,12 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
+)
+
+var (
+	stringerType    = reflect.TypeOf((*fmt.Stringer)(nil)).Elem()
+	marshalJsonType = reflect.TypeOf((*json.Marshaler)(nil)).Elem()
 )
 
 type Atlas struct {
@@ -12,17 +18,13 @@ type Atlas struct {
 }
 
 func NewAtlas() *Atlas {
-	return &Atlas{
-		descriptions: make(map[reflect.Type]interface{}),
-	}
+	return (&Atlas{descriptions: make(map[reflect.Type]interface{})}).
+		RegisterName(new(error), "error").
+		RegisterName(new(time.Time), "timestamp")
 }
 
 func (d *Atlas) RegisterStructure(thing interface{}, structure interface{}) *Atlas {
-	json, err := json.Marshal(structure)
-	if err != nil {
-		panic(err)
-	}
-	d.descriptions[baseType(reflect.TypeOf(thing))] = json
+	d.descriptions[baseType(reflect.TypeOf(thing))] = structure
 	return d
 }
 
@@ -31,18 +33,26 @@ func (d *Atlas) RegisterName(thing interface{}, name string) *Atlas {
 	return d
 }
 
-type state struct {
-	complete bool
-	desc     interface{}
+type state int
+
+const (
+	stateBuildingComplete state = iota
+	stateBuildingShallow
+	stateDone
+)
+
+type typeState struct {
+	state state
+	desc  interface{}
 }
 
 type describeState struct {
 	*Atlas
-	state map[reflect.Type]*state
+	state map[reflect.Type]*typeState
 }
 
 func (d *Atlas) Describe(thing interface{}) string {
-	state := describeState{d, make(map[reflect.Type]*state)}
+	state := describeState{d, make(map[reflect.Type]*typeState)}
 	desc := state.describe(reflect.TypeOf(thing))
 	var buf strings.Builder
 	enc := json.NewEncoder(&buf)
@@ -65,18 +75,24 @@ func (d *describeState) describe(t reflect.Type) interface{} {
 	t = baseType(t)
 	s, ok := d.state[t]
 	if ok {
-		if !s.complete {
-			return "<recursive>"
+		switch s.state {
+		case stateBuildingComplete:
+			s.state = stateBuildingShallow
+		case stateBuildingShallow:
+			return "..."
+		case stateDone:
+			return s.desc
 		}
-		return s.desc
 	} else {
-		s = new(state)
+		s = new(typeState)
 		d.state[t] = s
 	}
+
+	var desc interface{}
 	switch t.Kind() {
 	case reflect.Interface:
 		var ok bool
-		s.desc, ok = d.descriptions[t]
+		desc, ok = d.descriptions[t]
 		if !ok {
 			s.desc = "<object>"
 		}
@@ -84,13 +100,22 @@ func (d *describeState) describe(t reflect.Type) interface{} {
 		s.desc = map[string]interface{}{d.describe(t.Key()).(string): d.describe(t.Elem())}
 	case reflect.Struct:
 		var ok bool
-		s.desc, ok = d.descriptions[t]
+		desc, ok = d.descriptions[t]
 		if ok {
 			break
 		}
-		desc := make(map[string]interface{}, t.NumField())
+
+		if t.Implements(marshalJsonType) {
+			desc = "<object>"
+			break
+		}
+
+		structDesc := make(map[string]interface{}, t.NumField())
 		for j := 0; j < t.NumField(); j++ {
 			f := t.Field(j)
+			if f.PkgPath != "" {
+				continue // private field
+			}
 			name := f.Tag.Get("json")
 			if idx := strings.IndexByte(name, ','); idx >= 0 {
 				name = name[:idx]
@@ -98,14 +123,24 @@ func (d *describeState) describe(t reflect.Type) interface{} {
 			if name == "" {
 				name = f.Name
 			}
-			desc[name] = d.describe(f.Type)
+			structDesc[name] = d.describe(f.Type)
 		}
-		s.desc = desc
+		if len(structDesc) == 0 && t.Implements(stringerType) {
+			desc = "<string>"
+		} else {
+			desc = structDesc
+		}
 	case reflect.Slice:
-		s.desc = []interface{}{d.describe(t.Elem())}
+		desc = []interface{}{d.describe(t.Elem())}
 	default:
-		s.desc = fmt.Sprintf("<%s>", t.Kind())
+		desc = fmt.Sprintf("<%s>", t.Kind())
 	}
-	s.complete = true
-	return s.desc
+	switch s.state {
+	case stateBuildingComplete:
+		s.desc = desc
+	case stateBuildingShallow:
+	case stateDone:
+		panic("impossible state")
+	}
+	return desc
 }
