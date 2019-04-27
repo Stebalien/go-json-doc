@@ -48,7 +48,8 @@ type Glossary struct {
 func NewGlossary() *Glossary {
 	return (&Glossary{types: make(map[reflect.Type]*typeState)}).
 		RegisterName(new(error), "error").
-		RegisterName(new(time.Time), "timestamp")
+		RegisterName(new(time.Time), "timestamp").
+		RegisterName([]byte(nil), "<base64-string>") // go base64 encodes binary
 }
 
 func (d *Glossary) RegisterStructure(thing interface{}, structure interface{}) *Glossary {
