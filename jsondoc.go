@@ -1,6 +1,7 @@
 package jsondoc
 
 import (
+	"encoding"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -13,6 +14,7 @@ import (
 var (
 	stringerType    = reflect.TypeOf((*fmt.Stringer)(nil)).Elem()
 	marshalJsonType = reflect.TypeOf((*json.Marshaler)(nil)).Elem()
+	marshalTextType = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
 	objectDesc      = "<object>"
 	stringDesc      = "<string>"
 	recursiveDesc   = "..."
@@ -149,6 +151,9 @@ func (d *Glossary) describe(t reflect.Type) interface{} {
 	} else if t.Implements(marshalJsonType) {
 		// Handle types with custom marshallers.
 		return objectDesc
+	} else if t.Implements(marshalTextType) {
+		// Handle types with custom _text_ marshallers.
+		return stringDesc
 	} else {
 		s = new(typeState)
 		d.types[t] = s
