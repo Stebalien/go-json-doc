@@ -47,23 +47,31 @@ type Glossary struct {
 // NewGlossary creates a new glossary. In addition to th
 func NewGlossary() *Glossary {
 	return (&Glossary{types: make(map[reflect.Type]*typeState)}).
-		RegisterName(new(error), "error").
-		RegisterName(new(time.Time), "timestamp").
-		RegisterName([]byte(nil), "<base64-string>") // go base64 encodes binary
+		WithName(new(error), "error").
+		WithName(new(time.Time), "timestamp").
+		WithName([]byte(nil), "base64-string") // go base64 encodes binary
 }
 
-// RegisterDescription registers an object that describes the given type. This
-// description must marshal to JSON.
-func (d *Glossary) RegisterDescription(thing interface{}, description interface{}) *Glossary {
+// WithSchema describes 'thing's type with the given schema. The 'schema' must
+// marshal to JSON.
+//
+// This can be used to give types that implement custom json marshallers
+// accurate descriptions.
+func (d *Glossary) WithSchema(thing interface{}, schema interface{}) *Glossary {
 	d.types[baseType(reflect.TypeOf(thing))] = &typeState{
 		state: stateFullDone,
-		full:  description,
+		full:  schema,
 	}
 	return d
 }
 
-// RegisterName registers a name for the given type.
-func (d *Glossary) RegisterName(thing interface{}, name string) *Glossary {
+// WithName names the 'thing's type.
+//
+// For example, one can name all instances of MyStruct as "<my-struct>" with:
+//
+//   glossary.Name(new(MyStruct), "my-struct")
+//
+func (d *Glossary) WithName(thing interface{}, name string) *Glossary {
 	d.types[baseType(reflect.TypeOf(thing))] = &typeState{
 		state: stateFullDone,
 		full:  fmt.Sprintf("<%s>", name),
@@ -71,7 +79,7 @@ func (d *Glossary) RegisterName(thing interface{}, name string) *Glossary {
 	return d
 }
 
-// Describe describes the given type.
+// Describe returns a description for the given type.
 func (d *Glossary) Describe(thing interface{}) (string, error) {
 	desc := d.describe(reflect.TypeOf(thing))
 	var buf strings.Builder
