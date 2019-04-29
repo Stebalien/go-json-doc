@@ -3,6 +3,8 @@ package jsondoc
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
+	"net"
 	"reflect"
 	"strings"
 	"time"
@@ -49,9 +51,19 @@ func newGlossary(size int) *Glossary {
 }
 
 var defaultGlossary = newGlossary(3).
+	// go base64 encodes binary
+	WithName([]byte(nil), "base64-string").
+	// common types
 	WithName(new(error), "error").
 	WithName(new(time.Time), "timestamp").
-	WithName([]byte(nil), "base64-string") // go base64 encodes binary
+	WithName(new(time.Duration), "duration-ns").
+	WithName(new(net.Addr), "network-address").
+	WithName(new(net.IP), "ip-address").
+	WithName(new(net.IPMask), "ip-netmask").
+	WithName(new(net.HardwareAddr), "mac-address").
+	WithName(new(big.Int), "integer-string").
+	WithName(new(big.Float), "float-string").
+	WithName(new(big.Rat), "fraction-string")
 
 // NewGlossary creates a new glossary. In addition to th
 func NewGlossary() *Glossary {
