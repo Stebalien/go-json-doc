@@ -44,12 +44,18 @@ type Glossary struct {
 	types map[reflect.Type]*typeState
 }
 
+func newGlossary(size int) *Glossary {
+	return &Glossary{types: make(map[reflect.Type]*typeState, size)}
+}
+
+var defaultGlossary = newGlossary(3).
+	WithName(new(error), "error").
+	WithName(new(time.Time), "timestamp").
+	WithName([]byte(nil), "base64-string") // go base64 encodes binary
+
 // NewGlossary creates a new glossary. In addition to th
 func NewGlossary() *Glossary {
-	return (&Glossary{types: make(map[reflect.Type]*typeState)}).
-		WithName(new(error), "error").
-		WithName(new(time.Time), "timestamp").
-		WithName([]byte(nil), "base64-string") // go base64 encodes binary
+	return defaultGlossary.Clone()
 }
 
 // WithSchema describes 'thing's type with the given schema. The 'schema' must
@@ -77,6 +83,19 @@ func (d *Glossary) WithName(thing interface{}, name string) *Glossary {
 		full:  fmt.Sprintf("<%s>", name),
 	}
 	return d
+}
+
+// Clone clones the glossary. The cloned glossary can be safely used
+// concurrently with the original glossary.
+func (d *Glossary) Clone() *Glossary {
+	clone := newGlossary(len(d.types))
+	for t, state := range d.types {
+		if state.state != stateFullDone {
+			panic("invalid glossary state, did you catch a panic?")
+		}
+		clone.types[t] = state
+	}
+	return clone
 }
 
 // Describe returns a description for the given type.
