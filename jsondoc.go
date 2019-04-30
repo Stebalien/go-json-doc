@@ -200,7 +200,7 @@ func (d *Glossary) describe(t reflect.Type) interface{} {
 			}
 			var fieldDesc interface{}
 			if isString {
-				fieldDesc = fmt.Sprintf("<string-%s>", f.Type.Kind())
+				fieldDesc = fmt.Sprintf("<%s-string>", f.Type.Kind())
 			} else {
 				fieldDesc = d.describe(f.Type)
 			}
