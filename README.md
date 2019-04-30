@@ -1,7 +1,7 @@
 # go-json-doc
 
-[![Build Status](https://travis-ci.org/Stebalien/go-libp2p-gostream.svg?branch=master)](https://travis-ci.org/hsanjuan/go-libp2p-gostream)
-[![codecov](https://codecov.io/gh/Stebalien/go-libp2p-gostream/branch/master/graph/badge.svg)](https://codecov.io/gh/hsanjuan/go-libp2p-gostream)
+[![Build Status](https://travis-ci.org/Stebalien/go-json-doc.svg?branch=master)](https://travis-ci.org/Stebalien/go-json-doc)
+[![codecov](https://codecov.io/gh/Stebalien/go-json-doc/branch/master/graph/badge.svg)](https://codecov.io/gh/Stebalien/go-json-doc)
 
 > Go documentation generator for JSON structs.
 
