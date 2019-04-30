@@ -202,7 +202,7 @@ func (d *Glossary) describe(t reflect.Type) interface{} {
 			if isString {
 				fieldDesc = fmt.Sprintf("<string-%s>", f.Type.Kind())
 			} else {
-				d.describe(f.Type)
+				fieldDesc = d.describe(f.Type)
 			}
 			structDesc[name] = fieldDesc
 		}
