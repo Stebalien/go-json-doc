@@ -34,6 +34,11 @@ directory.
 
 PRs accepted.
 
+## Contributors
+
+* Steven Allen (@stebalien)
+* Initial concept by Hector Sanjuan (@hsanjuan)
+
 ## License
 
 MIT © Steven Allen
